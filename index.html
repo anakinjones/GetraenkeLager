@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lagerverwaltung</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        h2 {
+            text-align: center;
+            color: #fff;
+            margin-bottom: 24px;
+        }
+        .card {
+            background-color: #1E1E1E;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #aaa;
+            font-size: 14px;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            background-color: #2D2D2D;
+            border: 1px solid #444;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            box-sizing: border-box;
+            margin-bottom: 16px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #0d6efd;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:active {
+            background-color: #0b5ed7;
+        }
+        .history {
+            margin-top: 24px;
+        }
+        .item-row {
+            background-color: #252525;
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+        /* Login Overlay */
+        #loginOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #121212;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .login-box {
+            background-color: #1E1E1E;
+            border: 1px solid #333;
+            padding: 24px;
+            border-radius: 12px;
+            width: 80%;
+            max-width: 320px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Passworteingabe beim Start -->
+<div id="loginOverlay">
+    <div class="login-box">
+        <h2>PIN eingeben</h2>
+        <input type="password" id="pinInput" placeholder="PIN eingeben" pattern="[0-9]*" inputmode="numeric">
+        <button onclick="checkPin()">Entsperren</button>
+    </div>
+</div>
+
+<!-- Eigentliche App (anfangs versteckt) -->
+<div class="container" id="appContent" style="display: none;">
+    <h2>Lager-Inventar</h2>
+    
+    <div class="card">
+        <label for="anzahl">Anzahl</label>
+        <input type="number" id="anzahl" placeholder="z.B. 1 oder 99">
+
+        <label for="fuellmenge">Füllmenge in L</label>
+        <input type="number" step="any" id="fuellmenge" placeholder="z.B. 0.5">
+
+        <button onclick="speichernData()">Speichern</button>
+    </div>
+
+    <div class="history">
+        <h3>Letzte Einträge</h3>
+        <div id="eintraegeListe"></div>
+    </div>
+</div>
+
+<script>
+
+    const GEHEIME_PIN = "070807";
+
+    function checkPin() {
+        const eingegebenePin = document.getElementById('pinInput').value;
+        if (eingegebenePin === GEHEIME_PIN) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('appContent').style.display = 'block';
+            ladeEintraege();
+        } else {
+            alert('Falsche PIN!');
+            document.getElementById('pinInput').value = '';
+        }
+    }
+
+    function ladeEintraege() {
+        const liste = JSON.parse(localStorage.getItem('lagerEintraege') || '[]');
+        const container = document.getElementById('eintraegeListe');
+        container.innerHTML = '';
+        
+        liste.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item-row';
+            div.innerHTML = `<span>Anzahl: <b>${item.anzahl}</b></span> <span>Füllm.: <b>${item.fuellmenge} L</b></span> <span style="color:#888">${item.datum}</span>`;
+            container.appendChild(div);
+        });
+    }
+
+    function speichernData() {
+        const anzahl = document.getElementById('anzahl').value;
+        const fuellmenge = document.getElementById('fuellmenge'.value); // Korrektur im input
+
+        const anzahlFeld = document.getElementById('anzahl').value;
+        const fuellmengeFeld = document.getElementById('fuellmenge').value;
+
+        if (!anzahlFeld || !fuellmengeFeld) {
+            alert('Bitte beide Felder ausfüllen!');
+            return;
+        }
+
+        const neuerEintrag = {
+            anzahl: anzahlFeld,
+            fuellmenge: fuellmengeFeld,
+            datum: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        };
+
+        let liste = JSON.parse(localStorage.getItem('lagerEintraege') || '[]');
+        liste.unshift(neuerEintrag);
+        
+        localStorage.setItem('lagerEintraege', JSON.stringify(liste));
+
+        document.getElementById('anzahl').value = '';
+        document.getElementById('fuellmenge').value = '';
+
+        ladeEintraege();
+    }
+</script>
+
+</body>
+</html>
