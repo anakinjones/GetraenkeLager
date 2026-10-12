@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Getränke-Lagerverwaltung</title>
-    <!-- QuaggaJS für zuverlässige 1D-Barcode- und Code-128-Erkennung -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <!-- Html5-Qrcode Bibliothek, die EAN-13 perfekt unterstützt -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body {
             background-color: #121212;
@@ -63,7 +63,7 @@
             flex: 1;
         }
         .btn-scan {
-            background-color: #6c757d;
+            background-color: #198754;
             color: white;
             border: none;
             border-radius: 8px;
@@ -123,27 +123,14 @@
         .item-title { font-weight: bold; font-size: 16px; color: #fff; }
         .item-details { font-size: 14px; color: #aaa; margin-top: 6px; }
 
-        /* Scanner Ansicht */
         #scannerContainer {
             display: none;
             margin-bottom: 15px;
             background: #000;
             border-radius: 8px;
             overflow: hidden;
-            position: relative;
-        }
-        #interactive.viewport {
-            width: 100%;
-            height: 250px;
-            position: relative;
-        }
-        #interactive.viewport canvas, #interactive.viewport video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
         }
 
-        /* Login Overlay */
         #loginOverlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -183,15 +170,15 @@
     <!-- Ansicht: Buchen -->
     <div id="tabBuchen">
         <div class="card">
-            <label for="barcode">Barcode / Pfandcode</label>
+            <label for="barcode">Barcode / EAN-13</label>
             <div class="barcode-row">
                 <input type="text" id="barcode" placeholder="Scannen oder tippen..." autocomplete="off">
-                <button class="btn-scan" onclick="toggleScanner()">📷 Scan</button>
+                <button class="btn-scan" onclick="starteScanner()">📷 Scan</button>
             </div>
 
-            <!-- Quagga Kamera-Vorschau -->
+            <!-- Kamera-Vorschau -->
             <div id="scannerContainer">
-                <div id="interactive" class="viewport"></div>
+                <div id="reader" style="width: 100%;"></div>
                 <button class="btn-red" style="margin: 10px; width: calc(100% - 20px);" onclick="stoppeScanner()">Scanner schließen</button>
             </div>
 
@@ -224,7 +211,7 @@
 
 <script>
     const GEHEIME_PIN = "070807"; 
-    let scannerLaeuft = false;
+    let html5QrCode = null;
 
     function checkPin() {
         const eingegebenePin = document.getElementById('pinInput').value;
@@ -278,74 +265,52 @@
         } catch (e) {}
     }
 
-    function toggleScanner() {
-        if (scannerLaeuft) {
-            stoppeScanner();
-        } else {
-            starteScanner();
-        }
-    }
-
-    // Quagga Scanner für Code-128 starten
+    // Scanner für EAN-13 starten
     function starteScanner() {
         const container = document.getElementById('scannerContainer');
         container.style.display = 'block';
-        scannerLaeuft = true;
 
-        Quagga.init({
-            inputStream: {
-                name: "Live",
-                type: "LiveStream",
-                target: document.querySelector('#interactive'),
-                constraints: {
-                    facingMode: "environment" // Rückkamera
-                },
-            },
-            decoder: {
-                readers: [
-                    "code_128_reader", // Speziell für Code-128 / Pfandcodes
-                    "ean_reader",
-                    "ean_8_reader",
-                    "code_39_reader"
-                ]
-            },
-            locate: true
-        }, function(err) {
-            if (err) {
-                console.error("Quagga Init Fehler:", err);
-                alert("Kamera konnte nicht gestartet werden. Bitte erlaube den Zugriff in Safari.");
-                container.style.display = 'none';
-                scannerLaeuft = false;
-                return;
-            }
-            Quagga.start();
-        });
-
-        Quagga.onDetected(onBarcodeDetected);
-    }
-
-    function onBarcodeDetected(result) {
-        if (result && result.codeResult && result.codeResult.code) {
-            const code = result.codeResult.code;
-            playBeep();
-            
-            // Trage Code ins Feld ein
-            document.getElementById('barcode').value = code;
-            document.getElementById('barcode').dispatchEvent(new Event('input'));
-            
-            stoppeScanner();
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("reader");
         }
+
+        const config = {
+            fps: 15,
+            qrbox: { width: 280, height: 120 },
+            formatsToSupport: [ 
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E
+            ]
+        };
+
+        html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText, decodedResult) => {
+                playBeep();
+                document.getElementById('barcode').value = decodedText;
+                document.getElementById('barcode').dispatchEvent(new Event('input'));
+                stoppeScanner();
+            },
+            (errorMessage) => {}
+        ).catch(err => {
+            alert("Kamera konnte nicht gestartet werden. Bitte erlaube den Kamera-Zugriff in Safari.");
+            container.style.display = 'none';
+        });
     }
 
     function stoppeScanner() {
-        if (scannerLaeuft) {
-            try {
-                Quagga.stop();
-                Quagga.offDetected(onBarcodeDetected);
-            } catch (e) {}
-            scannerLaeuft = false;
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('scannerContainer').style.display = 'none';
+            }).catch(err => {
+                document.getElementById('scannerContainer').style.display = 'none';
+            });
+        } else {
+            document.getElementById('scannerContainer').style.display = 'none';
         }
-        document.getElementById('scannerContainer').style.display = 'none';
     }
 
     // Live-Prüfung ob Barcode im Lager existiert
@@ -420,7 +385,7 @@
             alert(`Ausgang gebucht! Neuer Bestand für ${artikel.Name}: ${artikel.Anzahl} Stk.`);
             felderLeeren();
         } else {
-            alert(`Fehler: Zu wenige Artikel im Lager! (Aktueller Bestand: {artikel.Anzahl} Stk.)`);
+            alert(`Fehler: Zu wenige Artikel im Lager! (Aktueller Bestand: ${artikel.Anzahl} Stk.)`);
         }
     }
 
