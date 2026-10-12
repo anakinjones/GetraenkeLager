@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Lagerverwaltung</title>
+    <title>Getränke-Lagerverwaltung</title>
     <style>
         body {
             background-color: #121212;
@@ -15,11 +15,12 @@
         .container {
             max-width: 500px;
             margin: 0 auto;
+            padding-bottom: 40px;
         }
         h2 {
             text-align: center;
-            color: #fff;
-            margin-bottom: 24px;
+            color: #ffc107;
+            margin-bottom: 20px;
         }
         .card {
             background-color: #1E1E1E;
@@ -30,162 +31,285 @@
         }
         label {
             display: block;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             color: #aaa;
-            font-size: 14px;
+            font-size: 13px;
         }
         input {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             background-color: #2D2D2D;
             border: 1px solid #444;
             border-radius: 8px;
             color: white;
             font-size: 16px;
             box-sizing: border-box;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
         input:focus {
             outline: none;
-            border-color: #0d6efd;
+            border-color: #ffc107;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
         }
         button {
-            width: 100%;
-            padding: 14px;
-            background-color: #0d6efd;
-            color: white;
+            flex: 1;
+            padding: 12px;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             cursor: pointer;
         }
-        button:active {
-            background-color: #0b5ed7;
-        }
-        .history {
-            margin-top: 24px;
-        }
-        .item-row {
-            background-color: #252525;
-            padding: 10px 14px;
-            border-radius: 6px;
-            margin-bottom: 8px;
+        .btn-green { background-color: #198754; color: white; }
+        .btn-red { background-color: #dc3545; color: white; }
+        .btn-primary { background-color: #0d6efd; color: white; width: 100%; margin-top: 5px;}
+        
+        .tabs {
             display: flex;
-            justify-content: space-between;
+            gap: 5px;
+            margin-bottom: 16px;
+        }
+        .tab-btn {
+            background-color: #2D2D2D;
+            color: #aaa;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 8px;
             font-size: 14px;
         }
+        .tab-btn.active {
+            background-color: #ffc107;
+            color: #121212;
+            border-color: #ffc107;
+        }
+
+        .item-row {
+            background-color: #252525;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 4px solid #ffc107;
+        }
+        .item-title { font-weight: bold; font-size: 16px; color: #fff; }
+        .item-details { font-size: 13px; color: #aaa; margin-top: 4px; }
+
         /* Login Overlay */
         #loginOverlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background-color: #121212;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            display: flex; justify-content: center; align-items: center;
             z-index: 1000;
         }
         .login-box {
             background-color: #1E1E1E;
             border: 1px solid #333;
-            padding: 24px;
-            border-radius: 12px;
-            width: 80%;
-            max-width: 320px;
-            text-align: center;
+            padding: 24px; border-radius: 12px;
+            width: 80%; max-width: 320px; text-align: center;
         }
     </style>
 </head>
 <body>
 
-<!-- Passworteingabe beim Start -->
+<!-- PIN Login -->
 <div id="loginOverlay">
     <div class="login-box">
         <h2>PIN eingeben</h2>
-        <input type="password" id="pinInput" placeholder="PIN eingeben" pattern="[0-9]*" inputmode="numeric">
-        <button onclick="checkPin()">Entsperren</button>
+        <input type="password" id="pinInput" placeholder="PIN" inputmode="numeric">
+        <button class="btn-primary" onclick="checkPin()">Entsperren</button>
     </div>
 </div>
 
-<!-- Eigentliche App (anfangs versteckt) -->
+<!-- Hauptinhalt -->
 <div class="container" id="appContent" style="display: none;">
-    <h2>Lager-Inventar</h2>
-    
-    <div class="card">
-        <label for="anzahl">Anzahl</label>
-        <input type="number" id="anzahl" placeholder="z.B. 1 oder 99">
+    <h2>Getränke-Lager</h2>
 
-        <label for="fuellmenge">Füllmenge in L</label>
-        <input type="number" step="any" id="fuellmenge" placeholder="z.B. 0.5">
-
-        <button onclick="speichernData()">Speichern</button>
+    <!-- Tabs zur Navigation -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('buchen')">Buchen</button>
+        <button class="tab-btn" onclick="switchTab('bestand')">Bestand</button>
     </div>
 
-    <div class="history">
-        <h3>Letzte Einträge</h3>
-        <div id="eintraegeListe"></div>
+    <!-- Ansicht: Buchen (Eingang / Ausgang) -->
+    <div id="tabBuchen">
+        <div class="card">
+            <label>Barcode</label>
+            <input type="text" id="barcode" placeholder="Barcode scannen oder eingeben">
+
+            <label>Anzahl (Stk.)</label>
+            <input type="number" id="anzahl" placeholder="z.B. 6" value="1">
+
+            <div id="neuerArtikelFelder" style="display:none; border-top: 1px solid #333; padding-top: 10px; margin-top: 10px;">
+                <p style="color: #ffc107; font-size: 13px; margin: 0 0 10px 0;">! Neuer Artikel - Details angeben:</p>
+                <label>Marke</label>
+                <input type="text" id="marke" placeholder="z.B. Paulaner">
+                <label>Artikelname</label>
+                <input type="text" id="name" placeholder="z.B. Spezi Kasten">
+                <label>Füllmenge pro Stk. (Liter)</label>
+                <input type="number" step="any" id="fuellmenge" placeholder="z.B. 0.5 oder 9.0">
+            </div>
+
+            <div class="btn-group" style="margin-top: 15px;">
+                <button class="btn-green" onclick="bucheEingang()">+ Eingang</button>
+                <button class="btn-red" onclick="bucheAusgang()">- Ausgang</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ansicht: Bestand -->
+    <div id="tabBestand" style="display: none;">
+        <div id="bestandsListe"></div>
     </div>
 </div>
 
 <script>
-
-    const GEHEIME_PIN = "070807";
+    const GEHEIME_PIN = "070807"; 
 
     function checkPin() {
-        const eingegebenePin = document.getElementById('pinInput').value;
-        if (eingegebenePin === GEHEIME_PIN) {
+        if (document.getElementById('pinInput').value === GEHEIME_PIN) {
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('appContent').style.display = 'block';
-            ladeEintraege();
+            ladeBestand();
         } else {
             alert('Falsche PIN!');
             document.getElementById('pinInput').value = '';
         }
     }
 
-    function ladeEintraege() {
-        const liste = JSON.parse(localStorage.getItem('lagerEintraege') || '[]');
-        const container = document.getElementById('eintraegeListe');
-        container.innerHTML = '';
-        
-        liste.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'item-row';
-            div.innerHTML = `<span>Anzahl: <b>${item.anzahl}</b></span> <span>Füllm.: <b>${item.fuellmenge} L</b></span> <span style="color:#888">${item.datum}</span>`;
-            container.appendChild(div);
-        });
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        if (tab === 'buchen') {
+            document.getElementById('tabBuchen').style.display = 'block';
+            document.getElementById('tabBestand').style.display = 'none';
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        } else {
+            document.getElementById('tabBuchen').style.display = 'none';
+            document.getElementById('tabBestand').style.display = 'block';
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            ladeBestand();
+        }
     }
 
-    function speichernData() {
-        const anzahl = document.getElementById('anzahl').value;
-        const fuellmenge = document.getElementById('fuellmenge'.value); // Korrektur im input
+    function getLager() {
+        return JSON.parse(localStorage.getItem('getraenkeLager') || '[]');
+    }
 
-        const anzahlFeld = document.getElementById('anzahl').value;
-        const fuellmengeFeld = document.getElementById('fuellmenge').value;
+    function speichereLager(lager) {
+        localStorage.setItem('getraenkeLager', JSON.stringify(lager));
+    }
 
-        if (!anzahlFeld || !fuellmengeFeld) {
-            alert('Bitte beide Felder ausfüllen!');
+    // Prüfen ob Barcode existiert, wenn nicht, Zusatzfelder einblenden
+    document.getElementById('barcode').addEventListener('input', function() {
+        const bc = this.value.trim();
+        const lager = getLager();
+        const artikel = lager.find(a => a.Barcode === bc);
+        const zusatz = document.getElementById('neuerArtikelFelder');
+        
+        if (bc && !artikel) {
+            zusatz.style.display = 'block';
+        } else {
+            zusatz.style.display = 'none';
+        }
+    });
+
+    function bucheEingang() {
+        const bc = document.getElementById('barcode').value.trim();
+        const anz = parseInt(document.getElementById('anzahl').value);
+
+        if (!bc || isNaN(anz) || anz <= 0) {
+            alert('Bitte Barcode und gültige Anzahl eingeben!');
             return;
         }
 
-        const neuerEintrag = {
-            anzahl: anzahlFeld,
-            fuellmenge: fuellmengeFeld,
-            datum: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-        };
+        let lager = getLager();
+        let artikel = lager.find(a => a.Barcode === bc);
 
-        let liste = JSON.parse(localStorage.getItem('lagerEintraege') || '[]');
-        liste.unshift(neuerEintrag);
-        
-        localStorage.setItem('lagerEintraege', JSON.stringify(liste));
+        if (artikel) {
+            artikel.Anzahl += anz;
+            alert(`Bestand erhöht! Neuer Bestand für ${artikel.Name}: ${artikel.Anzahl} Stk.`);
+        } else {
+            const marke = document.getElementById('marke').value.trim();
+            const name = document.getElementById('name').value.trim();
+            const fuellmenge = parseFloat(document.getElementById('fuellmenge').value.toString().replace(',', '.'));
 
-        document.getElementById('anzahl').value = '';
+            if (!marke || !name || isNaN(fuellmenge) || fuellmenge <= 0) {
+                alert('Bitte alle Felder für den neuen Artikel ausfüllen!');
+                return;
+            }
+
+            lager.push({ Barcode: bc, Marke: marke, Name: name, Fuellmenge: fuellmenge, Anzahl: anz });
+            alert('Neuer Artikel erfolgreich angelegt und gebucht!');
+        }
+
+        speichereLager(lager);
+        felderLeeren();
+    }
+
+    function bucheAusgang() {
+        const bc = document.getElementById('barcode').value.trim();
+        const anz = parseInt(document.getElementById('anzahl').value);
+
+        if (!bc || isNaN(anz) || anz <= 0) {
+            alert('Bitte Barcode und gültige Anzahl eingeben!');
+            return;
+        }
+
+        let lager = getLager();
+        let artikel = lager.find(a => a.Barcode === bc);
+
+        if (!artikel) {
+            alert('Fehler: Artikel mit diesem Barcode wurde nicht gefunden!');
+            return;
+        }
+
+        if (artikel.Anzahl >= anz) {
+            artikel.Anzahl -= anz;
+            speichereLager(lager);
+            alert(`Ausgang gebucht! Neuer Bestand für ${artikel.Name}: ${artikel.Anzahl} Stk.`);
+            felderLeeren();
+        } else {
+            alert(`Fehler: Zu wenige Artikel im Lager! (Aktueller Bestand: ${artikel.Anzahl} Stk.)`);
+        }
+    }
+
+    function felderLeeren() {
+        document.getElementById('barcode').value = '';
+        document.getElementById('anzahl').value = '1';
+        document.getElementById('marke').value = '';
+        document.getElementById('name').value = '';
         document.getElementById('fuellmenge').value = '';
+        document.getElementById('neuerArtikelFelder').style.display = 'none';
+    }
 
-        ladeEintraege();
+    function ladeBestand() {
+        const lager = getLager();
+        const container = document.getElementById('bestandsListe');
+        container.innerHTML = '';
+
+        // Nach Marke sortieren, nur Artikel mit Bestand > 0
+        const gefiltert = lager.filter(a => a.Anzahl > 0).sort((a, b) => a.Marke.localeCompare(b.Marke));
+
+        if (gefiltert.length === 0) {
+            container.innerHTML = '<p style="color: #ffc107; text-align: center; margin-top: 30px;">Das Lager ist aktuell leer.</p>';
+            return;
+        }
+
+        gefiltert.forEach(item => {
+            const gesamtLiter = item.Anzahl * item.Fuellmenge;
+            const div = document.createElement('div');
+            div.className = 'item-row';
+            div.innerHTML = `
+                <div class="item-title">${item.Marke} | ${item.Name}</div>
+                <div class="item-details">
+                    Füllmenge: ${item.Fuellmenge}L | Anzahl: <b>${item.Anzahl} Stk.</b><br>
+                    Gesamt: <b>${gesamtLiter.toFixed(2)}L</b> (BC: ${item.Barcode})
+                </div>
+            `;
+            container.appendChild(div);
+        });
     }
 </script>
 
