@@ -242,7 +242,7 @@
         localStorage.setItem('getraenkeLager', JSON.stringify(lager));
     }
 
-    // Kamera-Scanner starten
+    // Kamera-Scanner starten (optimiert für Code-128)
     function starteScanner() {
         const container = document.getElementById('scannerContainer');
         container.style.display = 'block';
@@ -251,19 +251,28 @@
             html5QrCode = new Html5Qrcode("reader");
         }
 
+        const config = {
+            fps: 15,
+            qrbox: { width: 280, height: 120 },
+            formatsToSupport: [ 
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.CODE_39
+            ]
+        };
+
         html5QrCode.start(
             { facingMode: "environment" },
-            {
-                fps: 10,
-                qrbox: { width: 250, height: 150 }
-            },
+            config,
             (decodedText, decodedResult) => {
                 document.getElementById('barcode').value = decodedText;
                 document.getElementById('barcode').dispatchEvent(new Event('input'));
                 stoppeScanner();
             },
             (errorMessage) => {
-                // Scanning läuft...
+                // Läuft im Hintergrund
             }
         ).catch(err => {
             alert("Kamera konnte nicht gestartet werden. Bitte erlaube den Kamera-Zugriff in den iPhone-Einstellungen für Safari.");
