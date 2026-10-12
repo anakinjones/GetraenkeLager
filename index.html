@@ -208,7 +208,8 @@
     let html5QrCode = null;
 
     function checkPin() {
-        if (document.getElementById('pinInput').value === GEHEIME_PIN) {
+        const eingegebenePin = document.getElementById('pinInput').value;
+        if (eingegebenePin === GEHEIME_PIN) {
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('appContent').style.display = 'block';
             ladeBestand();
@@ -251,23 +252,21 @@
         }
 
         html5QrCode.start(
-            { facingMode: "environment" }, // Nutzt die Rückkamera des iPhones
+            { facingMode: "environment" },
             {
                 fps: 10,
                 qrbox: { width: 250, height: 150 }
             },
             (decodedText, decodedResult) => {
-                // Erfolgreich gescannt!
                 document.getElementById('barcode').value = decodedText;
-                // Event auslösen, damit Neuanlage-Felder geprüft werden
                 document.getElementById('barcode').dispatchEvent(new Event('input'));
                 stoppeScanner();
             },
             (errorMessage) => {
-                // Ignorieren während des Suchens
+                // Scanning läuft...
             }
         ).catch(err => {
-            alert("Kamera konnte nicht gestartet werden. Bitte erlaube den Kamera-Zugriff in Safari.");
+            alert("Kamera konnte nicht gestartet werden. Bitte erlaube den Kamera-Zugriff in den iPhone-Einstellungen für Safari.");
             container.style.display = 'none';
         });
     }
@@ -278,6 +277,7 @@
                 document.getElementById('scannerContainer').style.display = 'none';
             }).catch(err => {
                 console.error("Fehler beim Stoppen des Scanners", err);
+                document.getElementById('scannerContainer').style.display = 'none';
             });
         } else {
             document.getElementById('scannerContainer').style.display = 'none';
@@ -366,7 +366,6 @@
         document.getElementById('marke').value = '';
         document.getElementById('name').value = '';
         document.getElementById('fuellmenge').value = '';
-        document.getElementById('neuerArtikelFlächen'] = null; // Fix
         document.getElementById('neuerArtikelFelder').style.display = 'none';
     }
 
