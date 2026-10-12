@@ -233,19 +233,18 @@
         localStorage.setItem('getraenkeLager', JSON.stringify(lager));
     }
 
-    // Kleinen Pieps-Ton erzeugen (Feedback)
     function playBeep() {
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
             oscillator.type = 'sine';
-            oscillator.frequency.value = 800; // Tonhöhe
+            oscillator.frequency.value = 800;
             gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.15); // 150ms lang
+            oscillator.stop(audioCtx.currentTime + 0.15);
         } catch (e) {
             console.log("Audio nicht unterstützt");
         }
@@ -278,7 +277,6 @@
             { facingMode: "environment" },
             config,
             (decodedText, decodedResult) => {
-                // ERFOLGS-FEEDBACK: Piepsen & Alert-Meldung mit dem Code!
                 playBeep();
                 alert("Erkannt! Barcode: " + decodedText);
 
@@ -355,7 +353,7 @@
     function bucheAusgang() {
         stoppeScanner();
         const bc = document.getElementById('barcode').value.trim();
-        const anz = parseInt(document.getElementById('anzahl'].value); // kleiner Fix
+        const anz = parseInt(document.getElementById('anzahl').value); // Korrigiert!
 
         if (!bc || isNaN(anz) || anz <= 0) {
             alert('Bitte Barcode und gültige Anzahl eingeben!');
