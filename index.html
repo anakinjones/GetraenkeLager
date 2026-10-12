@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Getränke-Lagerverwaltung</title>
-    <!-- Html5-Qrcode Bibliothek für EAN-13 Unterstützung -->
+    <!-- Html5-Qrcode Bibliothek -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body {
@@ -73,6 +73,10 @@
             cursor: pointer;
             margin-bottom: 12px;
             height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
         }
         .btn-group {
             display: flex;
@@ -123,14 +127,6 @@
         .item-title { font-weight: bold; font-size: 16px; color: #fff; }
         .item-details { font-size: 14px; color: #aaa; margin-top: 6px; }
 
-        #scannerContainer {
-            display: none;
-            margin-bottom: 15px;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
         #loginOverlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -172,14 +168,11 @@
         <div class="card">
             <label for="barcode">Barcode / EAN-13</label>
             <div class="barcode-row">
-                <input type="text" id="barcode" placeholder="Scannen oder tippen..." autocomplete="off">
-                <button class="btn-scan" onclick="starteScanner()">📷 Scan</button>
-            </div>
-
-            <!-- Kamera-Vorschau -->
-            <div id="scannerContainer">
-                <div id="reader" style="width: 100%;"></div>
-                <button class="btn-red" style="margin: 10px; width: calc(100% - 20px);" onclick="stoppeScanner()">Scanner schließen</button>
+                <input type="text" id="barcode" placeholder="Foto machen oder tippen..." autocomplete="off">
+                
+                <!-- Verstecktes Datei-Input für Foto-Scan -->
+                <input type="file" id="qr-input-file" accept="image/*" capture="environment" style="display:none;" onchange="schaueFotoAn(event)">
+                <button class="btn-scan" onclick="document.getElementById('qr-input-file').click()">📸 Foto Scan</button>
             </div>
 
             <label for="anzahl">Anzahl (Stk.)</label>
@@ -211,7 +204,7 @@
 
 <script>
     const GEHEIME_PIN = "070807"; 
-    let html5QrCode = null;
+    let html5QrCodeScanner = null;
 
     function checkPin() {
         const eingegebenePin = document.getElementById('pinInput').value;
@@ -227,7 +220,6 @@
     }
 
     function switchTab(tab) {
-        stoppeScanner();
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         if (tab === 'buchen') {
             document.getElementById('tabBuchen').style.display = 'block';
@@ -265,56 +257,42 @@
         } catch (e) {}
     }
 
-    // Scanner für EAN-13 starten (mit vollständiger Übernahme des reinen Textes)
-    function starteScanner() {
-        const container = document.getElementById('scannerContainer');
-        container.style.display = 'block';
-
-        if (!html5QrCode) {
-            html5QrCode = new Html5Qrcode("reader");
+    // Foto aufnehmen und direkt von der Bibliothek auswerten lassen
+    function schaueFotoAn(e) {
+        if (e.target.files && e.target.files.length == 0) {
+            return;
+        }
+        const imageFile = e.target.files[0];
+        
+        if (!html5QrCodeScanner) {
+            html5QrCodeScanner = new Html5Qrcode("qr-input-file", { verbose: false });
         }
 
-        const config = {
-            fps: 15,
-            qrbox: { width: 280, height: 120 },
-            formatsToSupport: [ 
-                Html5QrcodeSupportedFormats.EAN_13,
-                Html5QrcodeSupportedFormats.EAN_8,
-                Html5QrcodeSupportedFormats.UPC_A,
-                Html5QrcodeSupportedFormats.UPC_E
-            ]
-        };
+        // Temporäres unsichtbares Element für den Decoder nutzen
+        const html5QrCode = new Html5Qrcode("barcode-temp-reader" in window ? window.barcode-temp-reader : createTempReader());
 
-        html5QrCode.start(
-            { facingMode: "environment" },
-            config,
-            (decodedText, decodedResult) => {
+        html5QrCode.scanFile(imageFile, true)
+            .then(decodedText => {
                 playBeep();
-                
-                // Exakte, unveränderte Übernahme des gesamten EAN-13 Codes als reiner String
                 const vollerCode = String(decodedText).trim();
-                
                 document.getElementById('barcode').value = vollerCode;
                 document.getElementById('barcode').dispatchEvent(new Event('input'));
-                stoppeScanner();
-            },
-            (errorMessage) => {}
-        ).catch(err => {
-            alert("Kamera konnte nicht gestartet werden. Bitte erlaube den Kamera-Zugriff in Safari.");
-            container.style.display = 'none';
-        });
+                
+                // Datei-Input zurücksetzen, damit man denselben Barcode nochmal fotografieren kann
+                e.target.value = "";
+            })
+            .catch(err => {
+                alert("Konnte keinen Barcode auf dem Foto erkennen. Bitte versuche es mit etwas mehr Licht oder näherem Abstand.");
+                e.target.value = "";
+            });
     }
 
-    function stoppeScanner() {
-        if (html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => {
-                document.getElementById('scannerContainer').style.display = 'none';
-            }).catch(err => {
-                document.getElementById('scannerContainer').style.display = 'none';
-            });
-        } else {
-            document.getElementById('scannerContainer').style.display = 'none';
-        }
+    function createTempReader() {
+        const div = document.createElement('div');
+        div.id = "tempReaderDiv";
+        div.style.display = "none";
+        document.body.appendChild(div);
+        return "tempReaderDiv";
     }
 
     // Live-Prüfung ob Barcode im Lager existiert
@@ -332,7 +310,6 @@
     });
 
     function bucheEingang() {
-        stoppeScanner();
         const bc = document.getElementById('barcode').value.trim();
         const anz = parseInt(document.getElementById('anzahl').value);
 
@@ -366,7 +343,6 @@
     }
 
     function bucheAusgang() {
-        stoppeScanner();
         const bc = document.getElementById('barcode').value.trim();
         const anz = parseInt(document.getElementById('anzahl').value);
 
