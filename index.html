@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Getränke-Lagerverwaltung</title>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- QuaggaJS für zuverlässige 1D-Barcode- und Code-128-Erkennung -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <style>
         body {
             background-color: #121212;
@@ -29,27 +30,30 @@
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 16px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
         label {
             display: block;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
             color: #aaa;
-            font-size: 13px;
+            font-size: 14px;
+            font-weight: 500;
         }
         input {
             width: 100%;
-            padding: 10px;
+            padding: 14px;
             background-color: #2D2D2D;
             border: 1px solid #444;
             border-radius: 8px;
             color: white;
-            font-size: 16px;
+            font-size: 18px;
             box-sizing: border-box;
             margin-bottom: 12px;
         }
         input:focus {
             outline: none;
             border-color: #ffc107;
+            background-color: #333;
         }
         .barcode-row {
             display: flex;
@@ -63,11 +67,12 @@
             color: white;
             border: none;
             border-radius: 8px;
-            padding: 0 14px;
-            font-size: 14px;
+            padding: 0 16px;
+            font-size: 15px;
+            font-weight: bold;
             cursor: pointer;
             margin-bottom: 12px;
-            height: 42px;
+            height: 50px;
         }
         .btn-group {
             display: flex;
@@ -75,10 +80,10 @@
         }
         button {
             flex: 1;
-            padding: 12px;
+            padding: 14px;
             border: none;
             border-radius: 8px;
-            font-size: 15px;
+            font-size: 16px;
             font-weight: bold;
             cursor: pointer;
         }
@@ -95,34 +100,50 @@
             background-color: #2D2D2D;
             color: #aaa;
             border: 1px solid #444;
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 15px;
+            flex: 1;
+            text-align: center;
         }
         .tab-btn.active {
             background-color: #ffc107;
             color: #121212;
             border-color: #ffc107;
+            font-weight: bold;
         }
 
         .item-row {
             background-color: #252525;
-            padding: 12px;
+            padding: 14px;
             border-radius: 8px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             border-left: 4px solid #ffc107;
         }
         .item-title { font-weight: bold; font-size: 16px; color: #fff; }
-        .item-details { font-size: 13px; color: #aaa; margin-top: 4px; }
+        .item-details { font-size: 14px; color: #aaa; margin-top: 6px; }
 
+        /* Scanner Ansicht */
         #scannerContainer {
             display: none;
             margin-bottom: 15px;
             background: #000;
             border-radius: 8px;
             overflow: hidden;
+            position: relative;
+        }
+        #interactive.viewport {
+            width: 100%;
+            height: 250px;
+            position: relative;
+        }
+        #interactive.viewport canvas, #interactive.viewport video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
+        /* Login Overlay */
         #loginOverlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -140,46 +161,52 @@
 </head>
 <body>
 
+<!-- PIN Login -->
 <div id="loginOverlay">
     <div class="login-box">
         <h2>PIN eingeben</h2>
-        <input type="password" id="pinInput" placeholder="PIN" inputmode="numeric">
+        <input type="password" id="pinInput" placeholder="PIN" inputmode="numeric" onkeydown="if(event.key === 'Enter') checkPin()">
         <button class="btn-primary" onclick="checkPin()">Entsperren</button>
     </div>
 </div>
 
+<!-- Hauptinhalt -->
 <div class="container" id="appContent" style="display: none;">
     <h2>Getränke-Lager</h2>
 
+    <!-- Tabs -->
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('buchen')">Buchen</button>
         <button class="tab-btn" onclick="switchTab('bestand')">Bestand</button>
     </div>
 
+    <!-- Ansicht: Buchen -->
     <div id="tabBuchen">
         <div class="card">
-            <label>Barcode</label>
+            <label for="barcode">Barcode / Pfandcode</label>
             <div class="barcode-row">
-                <input type="text" id="barcode" placeholder="Scannen oder tippen">
-                <button class="btn-scan" onclick="starteScanner()">📷 Scan</button>
+                <input type="text" id="barcode" placeholder="Scannen oder tippen..." autocomplete="off">
+                <button class="btn-scan" onclick="toggleScanner()">📷 Scan</button>
             </div>
 
+            <!-- Quagga Kamera-Vorschau -->
             <div id="scannerContainer">
-                <div id="reader" style="width: 100%;"></div>
+                <div id="interactive" class="viewport"></div>
                 <button class="btn-red" style="margin: 10px; width: calc(100% - 20px);" onclick="stoppeScanner()">Scanner schließen</button>
             </div>
 
-            <label>Anzahl (Stk.)</label>
-            <input type="number" id="anzahl" placeholder="z.B. 6" value="1">
+            <label for="anzahl">Anzahl (Stk.)</label>
+            <input type="number" id="anzahl" value="1" inputmode="numeric">
 
-            <div id="neuerArtikelFelder" style="display:none; border-top: 1px solid #333; padding-top: 10px; margin-top: 10px;">
-                <p style="color: #ffc107; font-size: 13px; margin: 0 0 10px 0;">! Neuer Artikel - Details angeben:</p>
+            <!-- Zusatzfelder für neue Artikel -->
+            <div id="neuerArtikelFelder" style="display:none; border-top: 1px solid #333; padding-top: 12px; margin-top: 5px;">
+                <p style="color: #ffc107; font-size: 14px; margin: 0 0 12px 0; font-weight: bold;">! Neuer Artikel – Details angeben:</p>
                 <label>Marke</label>
                 <input type="text" id="marke" placeholder="z.B. Paulaner">
                 <label>Artikelname</label>
                 <input type="text" id="name" placeholder="z.B. Spezi Kasten">
                 <label>Füllmenge pro Stk. (Liter)</label>
-                <input type="number" step="any" id="fuellmenge" placeholder="z.B. 0.5 oder 9.0">
+                <input type="number" step="any" id="fuellmenge" placeholder="z.B. 0.5 oder 9.0" inputmode="decimal">
             </div>
 
             <div class="btn-group" style="margin-top: 15px;">
@@ -189,6 +216,7 @@
         </div>
     </div>
 
+    <!-- Ansicht: Bestand -->
     <div id="tabBestand" style="display: none;">
         <div id="bestandsListe"></div>
     </div>
@@ -196,13 +224,14 @@
 
 <script>
     const GEHEIME_PIN = "070807"; 
-    let html5QrCode = null;
+    let scannerLaeuft = false;
 
     function checkPin() {
         const eingegebenePin = document.getElementById('pinInput').value;
         if (eingegebenePin === GEHEIME_PIN) {
             document.getElementById('loginOverlay').style.display = 'none';
             document.getElementById('appContent').style.display = 'block';
+            document.getElementById('barcode').focus();
             ladeBestand();
         } else {
             alert('Falsche PIN!');
@@ -217,6 +246,7 @@
             document.getElementById('tabBuchen').style.display = 'block';
             document.getElementById('tabBestand').style.display = 'none';
             document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('barcode').focus();
         } else {
             document.getElementById('tabBuchen').style.display = 'none';
             document.getElementById('tabBestand').style.display = 'block';
@@ -239,70 +269,86 @@
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
             oscillator.type = 'sine';
-            oscillator.frequency.value = 800;
+            oscillator.frequency.value = 880;
             gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.15);
-        } catch (e) {
-            console.log("Audio nicht unterstützt");
+            oscillator.stop(audioCtx.currentTime + 0.12);
+        } catch (e) {}
+    }
+
+    function toggleScanner() {
+        if (scannerLaeuft) {
+            stoppeScanner();
+        } else {
+            starteScanner();
         }
     }
 
+    // Quagga Scanner für Code-128 starten
     function starteScanner() {
         const container = document.getElementById('scannerContainer');
         container.style.display = 'block';
+        scannerLaeuft = true;
 
-        if (!html5QrCode) {
-            html5QrCode = new Html5Qrcode("reader");
-        }
-
-        const config = {
-            fps: 15,
-            qrbox: { width: 300, height: 150 },
-            experimentalFeatures: {
-                useBarCodeDetectorIfSupported: true
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: document.querySelector('#interactive'),
+                constraints: {
+                    facingMode: "environment" // Rückkamera
+                },
             },
-            formatsToSupport: [ 
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.EAN_13,
-                Html5QrcodeSupportedFormats.EAN_8,
-                Html5QrcodeSupportedFormats.UPC_A,
-                Html5QrcodeSupportedFormats.CODE_39
-            ]
-        };
-
-        html5QrCode.start(
-            { facingMode: "environment" },
-            config,
-            (decodedText, decodedResult) => {
-                playBeep();
-                alert("Erkannt! Barcode: " + decodedText);
-
-                document.getElementById('barcode').value = decodedText;
-                document.getElementById('barcode').dispatchEvent(new Event('input'));
-                stoppeScanner();
+            decoder: {
+                readers: [
+                    "code_128_reader", // Speziell für Code-128 / Pfandcodes
+                    "ean_reader",
+                    "ean_8_reader",
+                    "code_39_reader"
+                ]
             },
-            (errorMessage) => {}
-        ).catch(err => {
-            alert("Kamera konnte nicht gestartet werden. Bitte erlaube den Kamera-Zugriff in den iPhone-Einstellungen für Safari.");
-            container.style.display = 'none';
+            locate: true
+        }, function(err) {
+            if (err) {
+                console.error("Quagga Init Fehler:", err);
+                alert("Kamera konnte nicht gestartet werden. Bitte erlaube den Zugriff in Safari.");
+                container.style.display = 'none';
+                scannerLaeuft = false;
+                return;
+            }
+            Quagga.start();
         });
+
+        Quagga.onDetected(onBarcodeDetected);
+    }
+
+    function onBarcodeDetected(result) {
+        if (result && result.codeResult && result.codeResult.code) {
+            const code = result.codeResult.code;
+            playBeep();
+            
+            // Trage Code ins Feld ein
+            document.getElementById('barcode').value = code;
+            document.getElementById('barcode').dispatchEvent(new Event('input'));
+            
+            stoppeScanner();
+        }
     }
 
     function stoppeScanner() {
-        if (html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => {
-                document.getElementById('scannerContainer').style.display = 'none';
-            }).catch(err => {
-                document.getElementById('scannerContainer').style.display = 'none';
-            });
-        } else {
-            document.getElementById('scannerContainer').style.display = 'none';
+        if (scannerLaeuft) {
+            try {
+                Quagga.stop();
+                Quagga.offDetected(onBarcodeDetected);
+            } catch (e) {}
+            scannerLaeuft = false;
         }
+        document.getElementById('scannerContainer').style.display = 'none';
     }
 
+    // Live-Prüfung ob Barcode im Lager existiert
     document.getElementById('barcode').addEventListener('input', function() {
         const bc = this.value.trim();
         const lager = getLager();
@@ -353,7 +399,7 @@
     function bucheAusgang() {
         stoppeScanner();
         const bc = document.getElementById('barcode').value.trim();
-        const anz = parseInt(document.getElementById('anzahl').value); // Korrigiert!
+        const anz = parseInt(document.getElementById('anzahl').value);
 
         if (!bc || isNaN(anz) || anz <= 0) {
             alert('Bitte Barcode und gültige Anzahl eingeben!');
@@ -374,7 +420,7 @@
             alert(`Ausgang gebucht! Neuer Bestand für ${artikel.Name}: ${artikel.Anzahl} Stk.`);
             felderLeeren();
         } else {
-            alert(`Fehler: Zu wenige Artikel im Lager! (Aktueller Bestand: ${artikel.Anzahl} Stk.)`);
+            alert(`Fehler: Zu wenige Artikel im Lager! (Aktueller Bestand: {artikel.Anzahl} Stk.)`);
         }
     }
 
@@ -385,6 +431,7 @@
         document.getElementById('name').value = '';
         document.getElementById('fuellmenge').value = '';
         document.getElementById('neuerArtikelFelder').style.display = 'none';
+        document.getElementById('barcode').focus();
     }
 
     function ladeBestand() {
