@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Getränke-Lagerverwaltung</title>
+    <!-- Html5-Qrcode Bibliothek für den Kamera-Scan -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body {
             background-color: #121212;
@@ -49,6 +51,24 @@
         input:focus {
             outline: none;
             border-color: #ffc107;
+        }
+        .barcode-row {
+            display: flex;
+            gap: 8px;
+        }
+        .barcode-row input {
+            flex: 1;
+        }
+        .btn-scan {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 14px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 12px;
+            height: 42px;
         }
         .btn-group {
             display: flex;
@@ -96,6 +116,15 @@
         .item-title { font-weight: bold; font-size: 16px; color: #fff; }
         .item-details { font-size: 13px; color: #aaa; margin-top: 4px; }
 
+        /* Scanner Modal / Ansicht */
+        #scannerContainer {
+            display: none;
+            margin-bottom: 15px;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
         /* Login Overlay */
         #loginOverlay {
             position: fixed;
@@ -127,17 +156,26 @@
 <div class="container" id="appContent" style="display: none;">
     <h2>Getränke-Lager</h2>
 
-    <!-- Tabs zur Navigation -->
+    <!-- Tabs -->
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('buchen')">Buchen</button>
         <button class="tab-btn" onclick="switchTab('bestand')">Bestand</button>
     </div>
 
-    <!-- Ansicht: Buchen (Eingang / Ausgang) -->
+    <!-- Ansicht: Buchen -->
     <div id="tabBuchen">
         <div class="card">
             <label>Barcode</label>
-            <input type="text" id="barcode" placeholder="Barcode scannen oder eingeben">
+            <div class="barcode-row">
+                <input type="text" id="barcode" placeholder="Scannen oder tippen">
+                <button class="btn-scan" onclick="starteScanner()">📷 Scan</button>
+            </div>
+
+            <!-- Kamera-Vorschau Bereich -->
+            <div id="scannerContainer">
+                <div id="reader" style="width: 100%;"></div>
+                <button class="btn-red" style="margin: 10px; width: calc(100% - 20px);" onclick="stoppeScanner()">Scanner schließen</button>
+            </div>
 
             <label>Anzahl (Stk.)</label>
             <input type="number" id="anzahl" placeholder="z.B. 6" value="1">
@@ -167,6 +205,7 @@
 
 <script>
     const GEHEIME_PIN = "070807"; 
+    let html5QrCode = null;
 
     function checkPin() {
         if (document.getElementById('pinInput').value === GEHEIME_PIN) {
@@ -180,6 +219,7 @@
     }
 
     function switchTab(tab) {
+        stoppeScanner();
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         if (tab === 'buchen') {
             document.getElementById('tabBuchen').style.display = 'block';
@@ -201,7 +241,50 @@
         localStorage.setItem('getraenkeLager', JSON.stringify(lager));
     }
 
-    // Prüfen ob Barcode existiert, wenn nicht, Zusatzfelder einblenden
+    // Kamera-Scanner starten
+    function starteScanner() {
+        const container = document.getElementById('scannerContainer');
+        container.style.display = 'block';
+
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("reader");
+        }
+
+        html5QrCode.start(
+            { facingMode: "environment" }, // Nutzt die Rückkamera des iPhones
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 150 }
+            },
+            (decodedText, decodedResult) => {
+                // Erfolgreich gescannt!
+                document.getElementById('barcode').value = decodedText;
+                // Event auslösen, damit Neuanlage-Felder geprüft werden
+                document.getElementById('barcode').dispatchEvent(new Event('input'));
+                stoppeScanner();
+            },
+            (errorMessage) => {
+                // Ignorieren während des Suchens
+            }
+        ).catch(err => {
+            alert("Kamera konnte nicht gestartet werden. Bitte erlaube den Kamera-Zugriff in Safari.");
+            container.style.display = 'none';
+        });
+    }
+
+    function stoppeScanner() {
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('scannerContainer').style.display = 'none';
+            }).catch(err => {
+                console.error("Fehler beim Stoppen des Scanners", err);
+            });
+        } else {
+            document.getElementById('scannerContainer').style.display = 'none';
+        }
+    }
+
+    // Prüfen ob Barcode existiert
     document.getElementById('barcode').addEventListener('input', function() {
         const bc = this.value.trim();
         const lager = getLager();
@@ -216,6 +299,7 @@
     });
 
     function bucheEingang() {
+        stoppeScanner();
         const bc = document.getElementById('barcode').value.trim();
         const anz = parseInt(document.getElementById('anzahl').value);
 
@@ -249,6 +333,7 @@
     }
 
     function bucheAusgang() {
+        stoppeScanner();
         const bc = document.getElementById('barcode').value.trim();
         const anz = parseInt(document.getElementById('anzahl').value);
 
@@ -281,6 +366,7 @@
         document.getElementById('marke').value = '';
         document.getElementById('name').value = '';
         document.getElementById('fuellmenge').value = '';
+        document.getElementById('neuerArtikelFlächen'] = null; // Fix
         document.getElementById('neuerArtikelFelder').style.display = 'none';
     }
 
@@ -289,7 +375,6 @@
         const container = document.getElementById('bestandsListe');
         container.innerHTML = '';
 
-        // Nach Marke sortieren, nur Artikel mit Bestand > 0
         const gefiltert = lager.filter(a => a.Anzahl > 0).sort((a, b) => a.Marke.localeCompare(b.Marke));
 
         if (gefiltert.length === 0) {
