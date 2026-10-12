@@ -69,6 +69,7 @@
         .btn-green { background-color: #198754; color: white; }
         .btn-red { background-color: #dc3545; color: white; }
         .btn-primary { background-color: #0d6efd; color: white; width: 100%; margin-top: 5px;}
+        .btn-secondary { background-color: #495057; color: white; width: 100%; margin-top: 10px; }
         
         .tabs {
             display: flex;
@@ -90,6 +91,46 @@
             color: #121212;
             border-color: #ffc107;
             font-weight: bold;
+        }
+
+        /* Schnellwahl Grid */
+        .quick-select-container {
+            margin-bottom: 15px;
+            background-color: #252525;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .quick-select-title {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .quick-buttons-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            max-height: 140px;
+            overflow-y: auto;
+        }
+        .quick-btn {
+            background-color: #333;
+            color: #ffc107;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            flex: 1 1 calc(50% - 6px);
+            text-align: left;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .quick-btn:active {
+            background-color: #ffc107;
+            color: #121212;
         }
 
         .item-row {
@@ -144,6 +185,14 @@
             <label for="barcode">Barcode / EAN-13 (Scanner-bereit)</label>
             <input type="text" id="barcode" placeholder="Mit Scanner scannen oder tippen..." autocomplete="off">
 
+            <!-- Schnellwahl-Bereich für bekannte Artikel -->
+            <div class="quick-select-container">
+                <div class="quick-select-title">⚡ Schnellwahl (Bekannte Artikel):</div>
+                <div class="quick-buttons-grid" id="quickButtonsGrid">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+
             <label for="anzahl">Anzahl (Stk.)</label>
             <input type="number" id="anzahl" value="1" inputmode="numeric">
 
@@ -168,6 +217,7 @@
     <!-- Ansicht: Bestand -->
     <div id="tabBestand" style="display: none;">
         <div id="bestandsListe"></div>
+        <button class="btn-secondary" onclick="exportiereLagerTxt()">📥 Bestandsdatei herunterladen (.txt)</button>
     </div>
 </div>
 
@@ -181,6 +231,7 @@
             document.getElementById('appContent').style.display = 'block';
             document.getElementById('barcode').focus();
             ladeBestand();
+            aktualisiereSchnellwahl();
         } else {
             alert('Falsche PIN!');
             document.getElementById('pinInput').value = '';
@@ -194,6 +245,7 @@
             document.getElementById('tabBestand').style.display = 'none';
             document.querySelectorAll('.tab-btn')[0].classList.add('active');
             document.getElementById('barcode').focus();
+            aktualisiereSchnellwahl();
         } else {
             document.getElementById('tabBuchen').style.display = 'none';
             document.getElementById('tabBestand').style.display = 'block';
@@ -208,6 +260,7 @@
 
     function speichereLager(lager) {
         localStorage.setItem('getraenkeLager', JSON.stringify(lager));
+        aktualisiereSchnellwahl();
     }
 
     function playBeep() {
@@ -225,7 +278,32 @@
         } catch (e) {}
     }
 
-    // Live-Prüfung bei Eingabe (egal ob getippt oder per Scanner-App eingefügt)
+    // Schnellwahl-Buttons auf Basis des Speichers generieren
+    function aktualisiereSchnellwahl() {
+        const grid = document.getElementById('quickButtonsGrid');
+        const lager = getLager();
+        grid.innerHTML = '';
+
+        if (lager.length === 0) {
+            grid.innerHTML = '<span style="color: #666; font-size: 12px; padding: 4px;">Noch keine Artikel vorhanden.</span>';
+            return;
+        }
+
+        lager.forEach(item => {
+            const btn = document.createElement('button');
+            btn.className = 'quick-btn';
+            btn.title = `${item.Marke} - ${item.Name}`;
+            btn.innerText = `${item.Marke} ${item.Name}`;
+            btn.onclick = function() {
+                document.getElementById('barcode').value = item.Barcode;
+                document.getElementById('barcode').dispatchEvent(new Event('input'));
+                playBeep();
+            };
+            grid.appendChild(btn);
+        });
+    }
+
+    // Live-Prüfung bei Eingabe
     document.getElementById('barcode').addEventListener('input', function() {
         const bc = this.value.trim();
         const lager = getLager();
@@ -233,7 +311,7 @@
         const zusatz = document.getElementById('neuerArtikelFelder');
         
         if (bc.length >= 8) {
-            playBeep(); // Akustisches Feedback beim Einlesen
+            playBeep(); 
         }
 
         if (bc && !artikel) {
@@ -338,6 +416,31 @@
             `;
             container.appendChild(div);
         });
+    }
+
+    // Funktion zum Herunterladen des Bestands als Textdatei
+    function exportiereLagerTxt() {
+        const lager = getLager();
+        let textInhalt = "--- GETRÄNKE-LAGER BESTAND ---\n\n";
+        
+        lager.forEach(item => {
+            textInhalt += `Marke: ${item.Marke}\n`;
+            textInhalt += `Name: ${item.Name}\n`;
+            textInhalt += `Füllmenge: ${item.Fuellmenge} L\n`;
+            textInhalt += `Anzahl: ${item.Anzahl} Stk.\n`;
+            textInhalt += `Barcode: ${item.Barcode}\n`;
+            textInhalt += `-------------------------\n`;
+        });
+
+        const blob = new Blob([textInhalt], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'lager_bestand.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 </script>
 
