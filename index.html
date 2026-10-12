@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Getränke-Lagerverwaltung</title>
-    <!-- Html5-Qrcode Bibliothek für den Kamera-Scan -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body {
@@ -116,7 +115,6 @@
         .item-title { font-weight: bold; font-size: 16px; color: #fff; }
         .item-details { font-size: 13px; color: #aaa; margin-top: 4px; }
 
-        /* Scanner Modal / Ansicht */
         #scannerContainer {
             display: none;
             margin-bottom: 15px;
@@ -125,7 +123,6 @@
             overflow: hidden;
         }
 
-        /* Login Overlay */
         #loginOverlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -143,7 +140,6 @@
 </head>
 <body>
 
-<!-- PIN Login -->
 <div id="loginOverlay">
     <div class="login-box">
         <h2>PIN eingeben</h2>
@@ -152,17 +148,14 @@
     </div>
 </div>
 
-<!-- Hauptinhalt -->
 <div class="container" id="appContent" style="display: none;">
     <h2>Getränke-Lager</h2>
 
-    <!-- Tabs -->
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('buchen')">Buchen</button>
         <button class="tab-btn" onclick="switchTab('bestand')">Bestand</button>
     </div>
 
-    <!-- Ansicht: Buchen -->
     <div id="tabBuchen">
         <div class="card">
             <label>Barcode</label>
@@ -171,7 +164,6 @@
                 <button class="btn-scan" onclick="starteScanner()">📷 Scan</button>
             </div>
 
-            <!-- Kamera-Vorschau Bereich -->
             <div id="scannerContainer">
                 <div id="reader" style="width: 100%;"></div>
                 <button class="btn-red" style="margin: 10px; width: calc(100% - 20px);" onclick="stoppeScanner()">Scanner schließen</button>
@@ -197,7 +189,6 @@
         </div>
     </div>
 
-    <!-- Ansicht: Bestand -->
     <div id="tabBestand" style="display: none;">
         <div id="bestandsListe"></div>
     </div>
@@ -242,7 +233,6 @@
         localStorage.setItem('getraenkeLager', JSON.stringify(lager));
     }
 
-    // Kamera-Scanner starten (optimiert für Code-128)
     function starteScanner() {
         const container = document.getElementById('scannerContainer');
         container.style.display = 'block';
@@ -253,7 +243,10 @@
 
         const config = {
             fps: 15,
-            qrbox: { width: 280, height: 120 },
+            qrbox: { width: 300, height: 150 },
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+            },
             formatsToSupport: [ 
                 Html5QrcodeSupportedFormats.CODE_128,
                 Html5QrcodeSupportedFormats.EAN_13,
@@ -271,9 +264,7 @@
                 document.getElementById('barcode').dispatchEvent(new Event('input'));
                 stoppeScanner();
             },
-            (errorMessage) => {
-                // Läuft im Hintergrund
-            }
+            (errorMessage) => {}
         ).catch(err => {
             alert("Kamera konnte nicht gestartet werden. Bitte erlaube den Kamera-Zugriff in den iPhone-Einstellungen für Safari.");
             container.style.display = 'none';
@@ -285,7 +276,6 @@
             html5QrCode.stop().then(() => {
                 document.getElementById('scannerContainer').style.display = 'none';
             }).catch(err => {
-                console.error("Fehler beim Stoppen des Scanners", err);
                 document.getElementById('scannerContainer').style.display = 'none';
             });
         } else {
@@ -293,7 +283,6 @@
         }
     }
 
-    // Prüfen ob Barcode existiert
     document.getElementById('barcode').addEventListener('input', function() {
         const bc = this.value.trim();
         const lager = getLager();
