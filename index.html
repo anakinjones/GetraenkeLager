@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Getränke-Lagerverwaltung</title>
-    <!-- Html5-Qrcode Bibliothek -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body {
             background-color: #121212;
@@ -170,7 +168,7 @@
             <div class="barcode-row">
                 <input type="text" id="barcode" placeholder="Foto machen oder tippen..." autocomplete="off">
                 
-                <!-- Verstecktes Datei-Input für Foto-Scan -->
+                <!-- Natives Foto-Input mit Apple Barcode Erkennung -->
                 <input type="file" id="qr-input-file" accept="image/*" capture="environment" style="display:none;" onchange="schaueFotoAn(event)">
                 <button class="btn-scan" onclick="document.getElementById('qr-input-file').click()">📸 Foto Scan</button>
             </div>
@@ -204,7 +202,6 @@
 
 <script>
     const GEHEIME_PIN = "070807"; 
-    let html5QrCodeScanner = null;
 
     function checkPin() {
         const eingegebenePin = document.getElementById('pinInput').value;
@@ -257,42 +254,36 @@
         } catch (e) {}
     }
 
-    // Foto aufnehmen und direkt von der Bibliothek auswerten lassen
-    function schaueFotoAn(e) {
-        if (e.target.files && e.target.files.length == 0) {
+    // Modernste native Barcode-Erkennung für Fotos
+    async function schaueFotoAn(e) {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+
+        if (!('BarcodeDetector' in window)) {
+            alert("Dein Browser unterstützt die automatische Barcode-Erkennung per Foto leider nicht. Bitte tippe den Code ein.");
             return;
         }
-        const imageFile = e.target.files[0];
-        
-        if (!html5QrCodeScanner) {
-            html5QrCodeScanner = new Html5Qrcode("qr-input-file", { verbose: false });
-        }
 
-        // Temporäres unsichtbares Element für den Decoder nutzen
-        const html5QrCode = new Html5Qrcode("barcode-temp-reader" in window ? window.barcode-temp-reader : createTempReader());
-
-        html5QrCode.scanFile(imageFile, true)
-            .then(decodedText => {
-                playBeep();
-                const vollerCode = String(decodedText).trim();
-                document.getElementById('barcode').value = vollerCode;
-                document.getElementById('barcode').dispatchEvent(new Event('input'));
-                
-                // Datei-Input zurücksetzen, damit man denselben Barcode nochmal fotografieren kann
-                e.target.value = "";
-            })
-            .catch(err => {
-                alert("Konnte keinen Barcode auf dem Foto erkennen. Bitte versuche es mit etwas mehr Licht oder näherem Abstand.");
-                e.target.value = "";
+        try {
+            playBeep();
+            const bitmap = await createImageBitmap(file);
+            const detector = new BarcodeDetector({ 
+                formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'] 
             });
-    }
+            const results = await detector.detect(bitmap);
 
-    function createTempReader() {
-        const div = document.createElement('div');
-        div.id = "tempReaderDiv";
-        div.style.display = "none";
-        document.body.appendChild(div);
-        return "tempReaderDiv";
+            if (results.length > 0) {
+                const code = results[0].rawValue;
+                document.getElementById('barcode').value = code;
+                document.getElementById('barcode').dispatchEvent(new Event('input'));
+            } else {
+                alert("Kein Barcode auf dem Foto erkannt. Versuche es mit etwas mehr Licht.");
+            }
+        } catch (err) {
+            alert("Fehler beim Verarbeiten des Fotos.");
+        } finally {
+            e.target.value = ""; // Reset für das nächste Foto
+        }
     }
 
     // Live-Prüfung ob Barcode im Lager existiert
@@ -370,6 +361,7 @@
     }
 
     function felderLeeren() {
+        document.getElementById('barcode').value = '&#8203;'; // dummy
         document.getElementById('barcode').value = '';
         document.getElementById('anzahl').value = '1';
         document.getElementById('marke').value = '';
@@ -409,3 +401,4 @@
 
 </body>
 </html>
+
