@@ -53,29 +53,6 @@
             border-color: #ffc107;
             background-color: #333;
         }
-        .barcode-row {
-            display: flex;
-            gap: 8px;
-        }
-        .barcode-row input {
-            flex: 1;
-        }
-        .btn-scan {
-            background-color: #198754;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 0 16px;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-bottom: 12px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-        }
         .btn-group {
             display: flex;
             gap: 10px;
@@ -164,14 +141,8 @@
     <!-- Ansicht: Buchen -->
     <div id="tabBuchen">
         <div class="card">
-            <label for="barcode">Barcode / EAN-13</label>
-            <div class="barcode-row">
-                <input type="text" id="barcode" placeholder="Foto machen oder tippen..." autocomplete="off">
-                
-                <!-- Natives Foto-Input mit Apple Barcode Erkennung -->
-                <input type="file" id="qr-input-file" accept="image/*" capture="environment" style="display:none;" onchange="schaueFotoAn(event)">
-                <button class="btn-scan" onclick="document.getElementById('qr-input-file').click()">📸 Foto Scan</button>
-            </div>
+            <label for="barcode">Barcode / EAN-13 (Scanner-bereit)</label>
+            <input type="text" id="barcode" placeholder="Mit Scanner scannen oder tippen..." autocomplete="off">
 
             <label for="anzahl">Anzahl (Stk.)</label>
             <input type="number" id="anzahl" value="1" inputmode="numeric">
@@ -182,9 +153,9 @@
                 <label>Marke</label>
                 <input type="text" id="marke" placeholder="z.B. Paulaner">
                 <label>Artikelname</label>
-                <input type="text" id="name" placeholder="z.B. Spezi Kasten">
+                <input type="text" id="name" placeholder="z.B. Apfelschorle">
                 <label>Füllmenge pro Stk. (Liter)</label>
-                <input type="number" step="any" id="fuellmenge" placeholder="z.B. 0.5 oder 9.0" inputmode="decimal">
+                <input type="number" step="any" id="fuellmenge" placeholder="z.B. 0.71" inputmode="decimal">
             </div>
 
             <div class="btn-group" style="margin-top: 15px;">
@@ -254,45 +225,17 @@
         } catch (e) {}
     }
 
-    // Modernste native Barcode-Erkennung für Fotos
-    async function schaueFotoAn(e) {
-        if (!e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
-
-        if (!('BarcodeDetector' in window)) {
-            alert("Dein Browser unterstützt die automatische Barcode-Erkennung per Foto leider nicht. Bitte tippe den Code ein.");
-            return;
-        }
-
-        try {
-            playBeep();
-            const bitmap = await createImageBitmap(file);
-            const detector = new BarcodeDetector({ 
-                formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'] 
-            });
-            const results = await detector.detect(bitmap);
-
-            if (results.length > 0) {
-                const code = results[0].rawValue;
-                document.getElementById('barcode').value = code;
-                document.getElementById('barcode').dispatchEvent(new Event('input'));
-            } else {
-                alert("Kein Barcode auf dem Foto erkannt. Versuche es mit etwas mehr Licht.");
-            }
-        } catch (err) {
-            alert("Fehler beim Verarbeiten des Fotos.");
-        } finally {
-            e.target.value = ""; // Reset für das nächste Foto
-        }
-    }
-
-    // Live-Prüfung ob Barcode im Lager existiert
+    // Live-Prüfung bei Eingabe (egal ob getippt oder per Scanner-App eingefügt)
     document.getElementById('barcode').addEventListener('input', function() {
         const bc = this.value.trim();
         const lager = getLager();
         const artikel = lager.find(a => a.Barcode === bc);
         const zusatz = document.getElementById('neuerArtikelFelder');
         
+        if (bc.length >= 8) {
+            playBeep(); // Akustisches Feedback beim Einlesen
+        }
+
         if (bc && !artikel) {
             zusatz.style.display = 'block';
         } else {
@@ -361,7 +304,6 @@
     }
 
     function felderLeeren() {
-        document.getElementById('barcode').value = '&#8203;'; // dummy
         document.getElementById('barcode').value = '';
         document.getElementById('anzahl').value = '1';
         document.getElementById('marke').value = '';
@@ -401,4 +343,3 @@
 
 </body>
 </html>
-
