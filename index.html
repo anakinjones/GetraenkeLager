@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Getränke-Lagerverwaltung</title>
-    <!-- Html5-Qrcode Bibliothek, die EAN-13 perfekt unterstützt -->
+    <!-- Html5-Qrcode Bibliothek für EAN-13 Unterstützung -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body {
@@ -265,7 +265,7 @@
         } catch (e) {}
     }
 
-    // Scanner für EAN-13 starten
+    // Scanner für EAN-13 starten (mit vollständiger Übernahme des reinen Textes)
     function starteScanner() {
         const container = document.getElementById('scannerContainer');
         container.style.display = 'block';
@@ -290,7 +290,11 @@
             config,
             (decodedText, decodedResult) => {
                 playBeep();
-                document.getElementById('barcode').value = decodedText;
+                
+                // Exakte, unveränderte Übernahme des gesamten EAN-13 Codes als reiner String
+                const vollerCode = String(decodedText).trim();
+                
+                document.getElementById('barcode').value = vollerCode;
                 document.getElementById('barcode').dispatchEvent(new Event('input'));
                 stoppeScanner();
             },
